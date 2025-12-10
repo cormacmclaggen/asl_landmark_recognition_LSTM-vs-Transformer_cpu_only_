@@ -27,3 +27,5 @@ train.csv
 # Editor stuff
 .vscode/
 *.swp
+*.ipynb
+.ipynb_checkpoints/
