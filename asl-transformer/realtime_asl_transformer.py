@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+# Realtime gesture/ASL with TFLite + MediaPipe + OpenCV
+
 
 """
 Realtime gesture/ASL with TFLite + MediaPipe + OpenCV

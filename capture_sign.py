@@ -1,3 +1,7 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# Realtime ASL recognition with TFLite + MediaPipe + OpenCV
+
 import cv2
 import mediapipe as mp
 import matplotlib.pyplot as plt

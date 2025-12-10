@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# MediaPipe Holistic model test with static images and webcam
 import cv2
 import numpy as np
 import mediapipe as mp

@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# Create sign to prediction index mapping JSON
 import pandas as pd
 import json
 

@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# ASL recognizer test data loader
 import os
 import json
 import time
