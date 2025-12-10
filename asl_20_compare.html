@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>ASL 20-class · LSTM vs Transformer (Latest Runs)</title>
+  <style>
+    :root {
+      --bg: #020617;
+      --card: #020617;
+      --accent: #38bdf8;
+      --accent-soft: rgba(56, 189, 248, 0.12);
+      --good: #4ade80;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --border: #020617;
+      --code-bg: #020617;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #0f172a 0, #020617 50%, #000 100%);
+      color: var(--text);
+      padding: 32px 16px 40px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 1180px;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+      margin-bottom: 24px;
+    }
+
+    .title-block h1 {
+      font-size: 1.9rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .title-pill {
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+    }
+
+    .subtitle {
+      font-size: 0.9rem;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
+    .meta {
+      font-size: 0.78rem;
+      color: var(--muted);
+      text-align: right;
+      line-height: 1.4;
+    }
+
+    .meta strong {
+      color: var(--text);
+    }
+
+    .meta code {
+      font-size: 0.75rem;
+      padding: 1px 5px;
+      border-radius: 999px;
+      background: rgba(15,23,42,0.95);
+      border: 1px solid rgba(30,64,175,0.7);
+    }
+
+    h2 {
+      font-size: 1.05rem;
+      margin: 26px 0 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    h2 span {
+      width: 4px;
+      height: 18px;
+      border-radius: 999px;
+      background: var(--accent);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .card {
+      background: radial-gradient(circle at top left, rgba(148,163,184,0.12) 0, rgba(15,23,42,0.96) 40%, #020617 100%);
+      border-radius: 18px;
+      padding: 16px 16px 14px;
+      border: 1px solid rgba(15, 23, 42, 0.95);
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+    }
+
+    .card-title {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .metric-main {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .metric-sub {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .badge-ok {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      background: rgba(34, 197, 94, 0.10);
+      border: 1px solid rgba(34, 197, 94, 0.35);
+      color: var(--good);
+      font-size: 0.78rem;
+      margin-top: 6px;
+    }
+
+    .badge-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: currentColor;
+      box-shadow: 0 0 8px currentColor;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .chip {
+      font-size: 0.78rem;
+      padding: 4px 9px;
+      border-radius: 999px;
+      background: #020617;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      color: #e5e7eb;
+    }
+
+    .chip span {
+      color: var(--muted);
+      margin-left: 4px;
+      font-size: 0.74rem;
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 8px;
+    }
+
+    .section-card {
+      border-radius: 18px;
+      border: 1px solid rgba(30, 64, 175, 0.7);
+      background: radial-gradient(circle at top left, rgba(56, 189, 248, 0.08) 0, rgba(15,23,42,0.98) 40%, #020617 100%);
+      padding: 14px 14px 12px;
+      font-size: 0.86rem;
+      color: var(--muted);
+    }
+
+    .section-card h3 {
+      font-size: 0.86rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .section-card strong {
+      color: var(--text);
+    }
+
+    .model-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.78rem;
+      margin-top: 6px;
+    }
+
+    .model-table th,
+    .model-table td {
+      padding: 6px 8px;
+      border-bottom: 1px solid rgba(30, 64, 175, 0.4);
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    .model-table th {
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 0.72rem;
+      color: var(--muted);
+    }
+
+    .model-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .model-summary-footer {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
+    code {
+      font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 0.78rem;
+      background: rgba(15, 23, 42, 0.95);
+      border-radius: 6px;
+      padding: 1px 5px;
+      border: 1px solid rgba(15, 23, 42, 0.9);
+    }
+
+    details {
+      margin-top: 10px;
+      border-radius: 14px;
+      border: 1px solid rgba(30, 64, 175, 0.7);
+      background: radial-gradient(circle at top left, rgba(56, 189, 248, 0.05) 0, rgba(15,23,42,0.98) 40%, #020617 100%);
+    }
+
+    summary {
+      cursor: pointer;
+      padding: 10px 14px;
+      font-size: 0.82rem;
+      color: var(--muted);
+      list-style: none;
+    }
+
+    summary::-webkit-details-marker {
+      display: none;
+    }
+
+    summary::before {
+      content: "▶";
+      display: inline-block;
+      font-size: 0.7rem;
+      margin-right: 8px;
+      transform: translateY(-1px);
+      opacity: 0.8;
+    }
+
+    details[open] summary::before {
+      content: "▼";
+    }
+
+    .log-content {
+      padding: 8px 14px 10px;
+      border-top: 1px solid rgba(30, 64, 175, 0.7);
+    }
+
+    pre {
+      background: var(--code-bg);
+      border-radius: 10px;
+      padding: 10px 12px;
+      overflow-x: auto;
+      font-size: 0.76rem;
+      line-height: 1.45;
+      border: 1px solid rgba(15, 23, 42, 0.9);
+      color: #e5e7eb;
+    }
+
+    .footer-note {
+      margin-top: 14px;
+      font-size: 0.78rem;
+      color: var(--muted);
+      text-align: right;
+    }
+
+    @media (max-width: 980px) {
+      .grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .two-col {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    @media (max-width: 640px) {
+      body {
+        padding: 20px 12px 28px;
+      }
+
+      .header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .meta {
+        text-align: left;
+      }
+
+      .grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <div class="title-block">
+        <h1>
+          ASL 20-class – LSTM vs Transformer
+          <span class="title-pill">Latest runs · CPU only</span>
+        </h1>
+        <p class="subtitle">
+          Clean comparison between the latest LSTM and Transformer runs on the same 20-sign ASL subset,
+          with final validation metrics and training time.
+        </p>
+      </div>
+      <div class="meta">
+        <div><strong>LSTM script:</strong> <code>train_asl_20_LSTM.py</code></div>
+        <div><strong>Transformer script:</strong> <code>train_asl_20_trainsformer.py</code></div>
+        <div style="margin-top:4px;">Run date: <strong>2025-12-09 (KST)</strong></div>
+      </div>
+    </header>
+
+    <!-- Summary cards -->
+    <section class="grid">
+      <!-- LSTM -->
+      <article class="card">
+        <div class="card-title">LSTM run</div>
+        <div class="metric-main">20 epochs</div>
+        <div class="metric-sub">
+          Dataset: <code>(6000, 32, 543, 3)</code><br />
+          Train / Val: <strong>5400 / 600</strong><br />
+          Total time: <strong>779.21 s</strong><br />
+          ≈ <strong>38.96 s</strong> / epoch
+        </div>
+      </article>
+
+      <!-- Transformer -->
+      <article class="card">
+        <div class="card-title">Transformer run</div>
+        <div class="metric-main">20 epochs</div>
+        <div class="metric-sub">
+          Dataset: <code>(8000, 32, 543, 3)</code><br />
+          Train / Val: <strong>7200 / 800</strong><br />
+          Total time: <strong>142.62 s</strong><br />
+          ≈ <strong>7.13 s</strong> / epoch
+        </div>
+      </article>
+
+      <!-- Speed & size -->
+      <article class="card">
+        <div class="card-title">Speed &amp; model size</div>
+        <div class="metric-main">~5.5× faster / epoch</div>
+        <div class="metric-sub">
+          LSTM params: <strong>5,573,908</strong> (~21.26 MB)<br />
+          Transformer params: <strong>1,542,420</strong> (~5.88 MB)<br />
+          Transformer is smaller &amp; much faster, even on the larger dataset.
+        </div>
+      </article>
+
+      <!-- Final metrics -->
+      <article class="card">
+        <div class="card-title">Final validation metrics</div>
+        <div class="metric-sub">
+          <strong>LSTM (Val, 600 samples)</strong><br />
+          &nbsp;&nbsp;Final <code>val_loss = 1.3109</code><br />
+          &nbsp;&nbsp;Final <code>val_acc = 0.5583</code> (~55.83%)<br /><br />
+          <strong>Transformer (Val, 800 samples)</strong><br />
+          &nbsp;&nbsp;Final <code>val_loss = 0.7056</code><br />
+          &nbsp;&nbsp;Final <code>val_acc = 0.7713</code> (~77.13%)
+        </div>
+        <div class="badge-ok">
+          <span class="badge-dot"></span>
+          Both models train stably; Transformer clearly wins in accuracy and speed.
+        </div>
+      </article>
+    </section>
+
+    <!-- Selected signs -->
+    <section>
+      <h2><span></span>Selected signs (20 classes)</h2>
+      <div class="chips">
+        <span class="chip">listen<span>415</span></span>
+        <span class="chip">look<span>414</span></span>
+        <span class="chip">shhh<span>411</span></span>
+        <span class="chip">donkey<span>410</span></span>
+        <span class="chip">mouse<span>408</span></span>
+        <span class="chip">duck<span>405</span></span>
+        <span class="chip">hear<span>405</span></span>
+        <span class="chip">uncle<span>405</span></span>
+        <span class="chip">pretend<span>404</span></span>
+        <span class="chip">bird<span>404</span></span>
+        <span class="chip">cow<span>404</span></span>
+        <span class="chip">sleepy<span>403</span></span>
+        <span class="chip">brown<span>403</span></span>
+        <span class="chip">who<span>403</span></span>
+        <span class="chip">bye<span>402</span></span>
+        <span class="chip">nuts<span>402</span></span>
+        <span class="chip">fireman<span>402</span></span>
+        <span class="chip">lips<span>402</span></span>
+        <span class="chip">toothbrush<span>402</span></span>
+        <span class="chip">wake<span>401</span></span>
+      </div>
+      <p style="font-size:0.8rem; color:var(--muted); margin-top:6px;">
+        Class counts are taken from the Transformer log. The LSTM run uses the same 20 signs but a 6000-sample subset.
+      </p>
+    </section>
+
+    <!-- Architectures -->
+    <section>
+      <h2><span></span>Architectures</h2>
+      <div class="two-col">
+        <!-- LSTM architecture -->
+        <div class="section-card">
+          <h3>LSTM model</h3>
+          <p>
+            Total parameters: <strong>5,573,908</strong> (~21.26 MB) &middot;
+            <strong>trainable: 100%</strong>.
+          </p>
+          <table class="model-table">
+            <thead>
+              <tr>
+                <th>Layer</th>
+                <th>Output</th>
+                <th>Params</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>input_1 (Input)</td>
+                <td>(None, 32, 543, 3)</td>
+                <td>0</td>
+              </tr>
+              <tr>
+                <td>reshape</td>
+                <td>(None, 32, 1629)</td>
+                <td>0</td>
+              </tr>
+              <tr>
+                <td>masking</td>
+                <td>(None, 32, 1629)</td>
+                <td>0</td>
+              </tr>
+              <tr>
+                <td>bidirectional (LSTM×2)</td>
+                <td>(None, 32, 512)</td>
+                <td>3,862,528</td>
+              </tr>
+              <tr>
+                <td>bidirectional_1 (LSTM×2)</td>
+                <td>(None, 512)</td>
+                <td>1,574,912</td>
+              </tr>
+              <tr>
+                <td>dense</td>
+                <td>(None, 256)</td>
+                <td>131,328</td>
+              </tr>
+              <tr>
+                <td>dropout</td>
+                <td>(None, 256)</td>
+                <td>0</td>
+              </tr>
+              <tr>
+                <td>dense_1 (output)</td>
+                <td>(None, 20)</td>
+                <td>5,140</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="model-summary-footer">
+            Input: <code>(32, 543, 3)</code> → frame-wise flatten → 2 BiLSTM blocks → Dense(256) → 20-class softmax.
+          </div>
+        </div>
+
+        <!-- Transformer architecture -->
+        <div class="section-card">
+          <h3>Transformer model</h3>
+          <p>
+            Total parameters: <strong>1,542,420</strong> (~5.88 MB) &middot;
+            <strong>trainable: 100%</strong>.
+          </p>
+          <table class="model-table">
+            <thead>
+              <tr>
+                <th>Layer</th>
+                <th>Output</th>
+                <th>Params</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>input_1 (Input)</td>
+                <td>(None, 32, 543, 3)</td>
+                <td>0</td>
+              </tr>
+              <tr>
+                <td>reshape</td>
+                <td>(None, 32, 1629)</td>
+                <td>0</td>
+              </tr>
+              <tr>
+                <td>dense (embedding)</td>
+                <td>(None, 32, 256)</td>
+                <td>417,280</td>
+              </tr>
+              <tr>
+                <td>MultiHeadAttention ×2</td>
+                <td>(None, 32, 256)</td>
+                <td>2 × 263,168</td>
+              </tr>
+              <tr>
+                <td>FFN blocks ×2</td>
+                <td>(None, 32, 256)</td>
+                <td>≈ 2 × (131,584 + 131,328)</td>
+              </tr>
+              <tr>
+                <td>LayerNorm ×4</td>
+                <td>(None, 32, 256)</td>
+                <td>4 × 512</td>
+              </tr>
+              <tr>
+                <td>GlobalAveragePooling1D</td>
+                <td>(None, 256)</td>
+                <td>0</td>
+              </tr>
+              <tr>
+                <td>dense_5</td>
+                <td>(None, 256)</td>
+                <td>65,792</td>
+              </tr>
+              <tr>
+                <td>dense_6 (output)</td>
+                <td>(None, 20)</td>
+                <td>5,140</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="model-summary-footer">
+            2 Transformer encoder blocks (MHA + FFN + residual + LayerNorm) → temporal global average pooling → Dense(256) → 20-class softmax.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Environment & artifacts -->
+    <section>
+      <h2><span></span>Environment & artifacts</h2>
+      <div class="two-col">
+        <div class="section-card">
+          <h3>Environment</h3>
+          <ul style="margin-left:16px; margin-top:4px;">
+            <li><strong>GPU:</strong> not used – CUDA / cuDNN / cuBLAS / cuFFT not found.</li>
+            <li><strong>CPU:</strong> TensorFlow notes AVX2 &amp; FMA support; suggests rebuilding with proper compiler flags.</li>
+            <li><strong>Memory:</strong> both models trigger warnings (single allocations &gt; 10% of free RAM).</li>
+            <li><strong>Data checks:</strong> no NaN / Inf in <code>X</code>; skipped samples = 0 for both runs.</li>
+          </ul>
+        </div>
+        <div class="section-card">
+          <h3>Saved files</h3>
+          <ul style="margin-left:16px; margin-top:4px;">
+            <li><strong>LSTM model:</strong> <code>asl_20_LSTM.h5</code></li>
+            <li><strong>LSTM labels:</strong> <code>asl_20_LSTM_sign_to_idx.json</code></li>
+            <li><strong>Best Transformer model:</strong> <code>best_asl_transformer_20.h5</code></li>
+            <li><strong>Final Transformer model:</strong> <code>asl_transformer_20.h5</code></li>
+            <li><strong>Transformer labels:</strong> <code>asl_transformer_20_sign_to_idx.json</code></li>
+          </ul>
+          <p style="font-size:0.8rem; margin-top:6px;">
+            ⚠ Keras warning: <code>.h5</code> is now considered legacy; for future experiments you can switch to the native <code>.keras</code> format.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Raw logs -->
+    <section>
+      <h2><span></span>Raw training logs (latest)</h2>
+
+      <!-- LSTM log (latest) -->
+      <details>
+        <summary>LSTM run – full console output</summary>
+        <div class="log-content">
+<pre>(mp_env) lananh@cormacmclaggen:~/GISLR$ /home/lananh/anaconda3/envs/mp_env/bin/python /home/lananh/GISLR/train_asl_20_LSTM.py
+2025-12-09 01:00:38.888285: I external/local_tsl/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+2025-12-09 01:00:38.913668: E external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:9261] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+2025-12-09 01:00:38.913706: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:607] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2025-12-09 01:00:38.914586: E external/local_xla/xla/stream_executor/cuda/cuda_blas.cc:1515] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2025-12-09 01:00:38.918998: I external/local_tsl/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+2025-12-09 01:00:38.919157: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-12-09 01:00:39.464669: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+Selected signs: ['listen', 'look', 'shhh', 'donkey', 'mouse', 'duck', 'hear', 'uncle', 'pretend', 'bird', 'cow', 'sleepy', 'brown', 'who', 'bye', 'nuts', 'fireman', 'lips', 'toothbrush', 'wake']
+Dataset shape: (6000, 32, 543, 3) (6000,)
+Skipped samples: 0
+Any NaN in X? False
+Any inf in X? False
+Saved label map to: asl_20_LSTM_sign_to_idx.json
+Train size: (5400, 32, 543, 3) Val size: (600, 32, 543, 3)
+2025-12-09 01:00:57.494660: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:901] successful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so returning NUMA node zero. See more at https://github.com/torvalds/linux/blob/v6.0/Documentation/ABI/testing/sysfs-bus-pci#L344-L355
+2025-12-09 01:00:57.504856: W tensorflow/core/common_runtime/gpu/gpu_device.cc:2256] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+Skipping registering GPU devices...
+Model: "model"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ input_1 (InputLayer)        [(None, 32, 543, 3)]      0         
+                                                                 
+ reshape (Reshape)           (None, 32, 1629)          0         
+                                                                 
+ masking (Masking)           (None, 32, 1629)          0         
+                                                                 
+ bidirectional (Bidirection  (None, 32, 512)           3862528   
+ al)                                                             
+                                                                 
+ bidirectional_1 (Bidirecti  (None, 512)               1574912   
+ onal)                                                           
+                                                                 
+ dense (Dense)               (None, 256)               131328    
+                                                                 
+ dropout (Dropout)           (None, 256)               0         
+                                                                 
+ dense_1 (Dense)             (None, 20)                5140      
+                                                                 
+=================================================================
+Total params: 5573908 (21.26 MB)
+Trainable params: 5573908 (21.26 MB)
+Non-trainable params: 0 (0.00 Byte)
+_________________________________________________________________
+2025-12-09 01:00:59.043733: W external/local_tsl/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 1125964800 exceeds 10% of free system memory.
+Epoch 1/20
+169/169 [==============================] - 45s 236ms/step - loss: 2.9380 - accuracy: 0.0846 - val_loss: 2.7176 - val_accuracy: 0.1200
+Epoch 2/20
+169/169 [==============================] - 38s 227ms/step - loss: 2.6142 - accuracy: 0.1522 - val_loss: 2.4886 - val_accuracy: 0.1850
+Epoch 3/20
+169/169 [==============================] - 38s 227ms/step - loss: 2.4403 - accuracy: 0.1926 - val_loss: 2.3174 - val_accuracy: 0.2400
+Epoch 4/20
+169/169 [==============================] - 38s 227ms/step - loss: 2.2864 - accuracy: 0.2437 - val_loss: 2.2330 - val_accuracy: 0.2517
+Epoch 5/20
+169/169 [==============================] - 38s 227ms/step - loss: 2.1710 - accuracy: 0.2819 - val_loss: 2.1294 - val_accuracy: 0.2883
+Epoch 6/20
+169/169 [==============================] - 38s 226ms/step - loss: 2.0334 - accuracy: 0.3169 - val_loss: 1.9036 - val_accuracy: 0.3617
+Epoch 7/20
+169/169 [==============================] - 39s 230ms/step - loss: 1.9374 - accuracy: 0.3481 - val_loss: 1.9642 - val_accuracy: 0.3200
+Epoch 8/20
+169/169 [==============================] - 38s 228ms/step - loss: 1.8104 - accuracy: 0.3876 - val_loss: 1.8963 - val_accuracy: 0.3517
+Epoch 9/20
+169/169 [==============================] - 39s 228ms/step - loss: 1.7207 - accuracy: 0.4194 - val_loss: 1.6817 - val_accuracy: 0.4300
+Epoch 10/20
+169/169 [==============================] - 39s 229ms/step - loss: 1.6482 - accuracy: 0.4346 - val_loss: 1.7047 - val_accuracy: 0.4150
+Epoch 11/20
+169/169 [==============================] - 38s 227ms/step - loss: 1.5347 - accuracy: 0.4743 - val_loss: 1.5968 - val_accuracy: 0.4567
+Epoch 12/20
+169/169 [==============================] - 38s 228ms/step - loss: 1.4882 - accuracy: 0.4939 - val_loss: 1.5948 - val_accuracy: 0.4517
+Epoch 13/20
+169/169 [==============================] - 39s 229ms/step - loss: 1.4025 - accuracy: 0.5194 - val_loss: 1.5261 - val_accuracy: 0.4767
+Epoch 14/20
+169/169 [==============================] - 39s 228ms/step - loss: 1.3406 - accuracy: 0.5389 - val_loss: 1.4938 - val_accuracy: 0.4900
+Epoch 15/20
+169/169 [==============================] - 38s 228ms/step - loss: 1.2504 - accuracy: 0.5796 - val_loss: 1.4487 - val_accuracy: 0.5217
+Epoch 16/20
+169/169 [==============================] - 39s 231ms/step - loss: 1.2064 - accuracy: 0.5883 - val_loss: 1.3282 - val_accuracy: 0.5550
+Epoch 17/20
+169/169 [==============================] - 39s 229ms/step - loss: 1.1310 - accuracy: 0.6165 - val_loss: 1.4227 - val_accuracy: 0.5283
+Epoch 18/20
+169/169 [==============================] - 39s 230ms/step - loss: 1.0862 - accuracy: 0.6335 - val_loss: 1.3938 - val_accuracy: 0.5533
+Epoch 19/20
+169/169 [==============================] - 39s 229ms/step - loss: 1.0197 - accuracy: 0.6556 - val_loss: 1.4908 - val_accuracy: 0.5067
+Epoch 20/20
+169/169 [==============================] - 39s 228ms/step - loss: 0.9844 - accuracy: 0.6654 - val_loss: 1.3109 - val_accuracy: 0.5583
+LSTM training time for 20 epochs: 779.21 seconds
+≈ 38.96 seconds per epoch
+/home/lananh/anaconda3/envs/mp_env/lib/python3.10/site-packages/keras/src/engine/training.py:3103: UserWarning: You are saving your model as an HDF5 file via `model.save()`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')`.
+  saving_api.save_model(
+Saved model: asl_20_LSTM.h5
+Saved labels: asl_20_LSTM_sign_to_idx.json
+19/19 [==============================] - 1s 45ms/step - loss: 1.3109 - accuracy: 0.5583
+Final val_loss = 1.3109, val_acc = 0.5583</pre>
+        </div>
+      </details>
+
+      <!-- Transformer log (latest) -->
+      <details style="margin-top:10px;">
+        <summary>Transformer run – full console output</summary>
+        <div class="log-content">
+<pre>(mp_env) lananh@cormacmclaggen:~/GISLR$ /home/lananh/anaconda3/envs/mp_env/bin/python /home/lananh/GISLR/train_asl_20_trainsformer.py
+2025-12-09 01:14:26.254009: I external/local_tsl/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+2025-12-09 01:14:26.279383: E external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:9261] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+2025-12-09 01:14:26.279420: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:607] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2025-12-09 01:14:26.280263: E external/local_xla/xla/stream_executor/cuda/cuda_blas.cc:1515] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2025-12-09 01:14:26.285072: I external/local_tsl/tsl/cuda/cudart_stub.cc:31] Could not find cuda drivers on your machine, GPU will not be used.
+2025-12-09 01:14:26.285230: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-12-09 01:14:26.875807: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+Building dataset ...
+Selected 20 signs:
+  listen: 415 samples
+  look: 414 samples
+  shhh: 411 samples
+  donkey: 410 samples
+  mouse: 408 samples
+  duck: 405 samples
+  hear: 405 samples
+  uncle: 405 samples
+  pretend: 404 samples
+  bird: 404 samples
+  cow: 404 samples
+  sleepy: 403 samples
+  brown: 403 samples
+  who: 403 samples
+  bye: 402 samples
+  nuts: 402 samples
+  fireman: 402 samples
+  lips: 402 samples
+  toothbrush: 402 samples
+  wake: 401 samples
+Saved label map to asl_transformer_20_sign_to_idx.json
+Total rows in dataset: 8000
+Loaded 200 / 8000 rows
+Loaded 400 / 8000 rows
+Loaded 600 / 8000 rows
+Loaded 800 / 8000 rows
+Loaded 1000 / 8000 rows
+Loaded 1200 / 8000 rows
+Loaded 1400 / 8000 rows
+Loaded 1600 / 8000 rows
+Loaded 1800 / 8000 rows
+Loaded 2000 / 8000 rows
+Loaded 2200 / 8000 rows
+Loaded 2400 / 8000 rows
+Loaded 2600 / 8000 rows
+Loaded 2800 / 8000 rows
+Loaded 3000 / 8000 rows
+Loaded 3200 / 8000 rows
+Loaded 3400 / 8000 rows
+Loaded 3600 / 8000 rows
+Loaded 3800 / 8000 rows
+Loaded 4000 / 8000 rows
+Loaded 4200 / 8000 rows
+Loaded 4400 / 8000 rows
+Loaded 4600 / 8000 rows
+Loaded 4800 / 8000 rows
+Loaded 5000 / 8000 rows
+Loaded 5200 / 8000 rows
+Loaded 5400 / 8000 rows
+Loaded 5600 / 8000 rows
+Loaded 5800 / 8000 rows
+Loaded 6000 / 8000 rows
+Loaded 6200 / 8000 rows
+Loaded 6400 / 8000 rows
+Loaded 6600 / 8000 rows
+Loaded 6800 / 8000 rows
+Loaded 7000 / 8000 rows
+Loaded 7200 / 8000 rows
+Loaded 7400 / 8000 rows
+Loaded 7600 / 8000 rows
+Loaded 7800 / 8000 rows
+Loaded 8000 / 8000 rows
+Finished loading dataset.
+  Loaded samples: 8000
+  Skipped samples: 0
+Any NaN in X? False
+Any inf in X? False
+Dataset shapes:
+  X: (8000, 32, 543, 3)
+  y: (8000,)
+Training samples: 7200
+Validation samples: 800
+Number of classes: 20
+2025-12-09 01:14:50.026411: I external/local_xla/xla/stream_executor/cuda/cuda_executor.cc:901] successful NUMA node read from SysFS had negative value (-1), but there must be at least one NUMA node, so returning NUMA node zero. See more at https://github.com/torvalds/linux/blob/v6.0/Documentation/ABI/testing/sysfs-bus-pci#L344-L355
+2025-12-09 01:14:50.030481: W tensorflow/core/common_runtime/gpu/gpu_device.cc:2256] Cannot dlopen some GPU libraries. Please make sure the missing libraries mentioned above are installed properly if you would like to use GPU. Follow the guide at https://www.tensorflow.org/install/gpu for how to download and setup the required libraries for your platform.
+Skipping registering GPU devices...
+Model: "model"
+__________________________________________________________________________________________________
+ Layer (type)                Output Shape                 Param #   Connected to                  
+==================================================================================================
+ input_1 (InputLayer)        [(None, 32, 543, 3)]         0         []                            
+                                                                                                  
+ reshape (Reshape)           (None, 32, 1629)             0         ['input_1[0][0]']             
+                                                                                                  
+ dense (Dense)               (None, 32, 256)              417280    ['reshape[0][0]']             
+                                                                                                  
+ tf.__operators__.add (TFOp  (None, 32, 256)              0         ['dense[0][0]']               
+ Lambda)                                                                                          
+                                                                                                  
+ multi_head_attention (Mult  (None, 32, 256)              263168    ['tf.__operators__.add[0][0]',
+ iHeadAttention)                                                     'tf.__operators__.add[0][0]']
+                                                                                                  
+ add (Add)                   (None, 32, 256)              0         ['tf.__operators__.add[0][0]',
+                                                                     'multi_head_attention[0][0]']
+                                                                                                  
+ layer_normalization (Layer  (None, 32, 256)              512       ['add[0][0]']                 
+ Normalization)                                                                                   
+                                                                                                  
+ dense_1 (Dense)             (None, 32, 512)              131584    ['layer_normalization[0][0]'] 
+                                                                                                  
+ dense_2 (Dense)             (None, 32, 256)              131328    ['dense_1[0][0]']             
+                                                                                                  
+ dropout (Dropout)           (None, 32, 256)              0         ['dense_2[0][0]']             
+                                                                                                  
+ add_1 (Add)                 (None, 32, 256)              0         ['layer_normalization[0][0]', 
+                                                                     'dropout[0][0]']             
+                                                                                                  
+ layer_normalization_1 (Lay  (None, 32, 256)              512       ['add_1[0][0]']               
+ erNormalization)                                                                                 
+                                                                                                  
+ multi_head_attention_1 (Mu  (None, 32, 256)              263168    ['layer_normalization_1[0][0]'
+ ltiHeadAttention)                                                  , 'layer_normalization_1[0][0]
+                                                                    ']                            
+                                                                                                  
+ add_2 (Add)                 (None, 32, 256)              0         ['layer_normalization_1[0][0]'
+                                                                    , 'multi_head_attention_1[0][0
+                                                                    ]']                           
+                                                                                                  
+ layer_normalization_2 (Lay  (None, 32, 256)              512       ['add_2[0][0]']               
+ erNormalization)                                                                                 
+                                                                                                  
+ dense_3 (Dense)             (None, 32, 512)              131584    ['layer_normalization_2[0][0]'
+                                                                    ]                             
+                                                                                                  
+ dense_4 (Dense)             (None, 32, 256)              131328    ['dense_3[0][0]']             
+                                                                                                  
+ dropout_1 (Dropout)         (None, 32, 256)              0         ['dense_4[0][0]']             
+                                                                                                  
+ add_3 (Add)                 (None, 32, 256)              0         ['layer_normalization_2[0][0]'
+                                                                    , 'dropout_1[0][0]']          
+                                                                                                  
+ layer_normalization_3 (Lay  (None, 32, 256)              512       ['add_3[0][0]']               
+ erNormalization)                                                                                 
+                                                                                                  
+ global_average_pooling1d (  (None, 256)                  0         ['layer_normalization_3[0][0]'
+ GlobalAveragePooling1D)                                            ]                             
+                                                                                                  
+ dense_5 (Dense)             (None, 256)                  65792     ['global_average_pooling1d[0][
+                                                                    0]']                          
+                                                                                                  
+ dropout_2 (Dropout)         (None, 256)                  0         ['dense_5[0][0]']             
+                                                                                                  
+ dense_6 (Dense)             (None, 20)                   5140      ['dropout_2[0][0]']           
+                                                                                                  
+==================================================================================================
+Total params: 1542420 (5.88 MB)
+Trainable params: 1542420 (5.88 MB)
+Non-trainable params: 0 (0.00 Byte)
+__________________________________________________________________________________________________
+2025-12-09 01:14:50.405998: W external/local_tsl/tsl/framework/cpu_allocator_impl.cc:83] Allocation of 1501286400 exceeds 10% of free system memory.
+Epoch 1/20
+225/225 [==============================] - ETA: 0s - loss: 3.0053 - accuracy: 0.0714  
+Epoch 1: val_loss improved from inf to 2.83167, saving model to best_asl_transformer_20.h5
+/home/lananh/anaconda3/envs/mp_env/lib/python3.10/site-packages/keras/src/engine/training.py:3103: UserWarning: You are saving your model as an HDF5 file via `model.save()`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')`.
+  saving_api.save_model(
+225/225 [==============================] - 9s 32ms/step - loss: 3.0053 - accuracy: 0.0714 - val_loss: 2.8317 - val_accuracy: 0.1262 - lr: 1.0000e-04
+Epoch 2/20
+225/225 [==============================] - ETA: 0s - loss: 2.6731 - accuracy: 0.1429
+Epoch 2: val_loss improved from 2.83167 to 2.53813, saving model to best_asl_transformer_20.h5
+225/225 [==============================] - 7s 30ms/step - loss: 2.6731 - accuracy: 0.1429 - val_loss: 2.5381 - val_accuracy: 0.1875 - lr: 1.0000e-04
+Epoch 3/20
+225/225 [==============================] - ETA: 0s - loss: 2.3564 - accuracy: 0.2290
+Epoch 3: val_loss improved from 2.53813 to 2.11828, saving model to best_asl_transformer_20.h5
+225/225 [==============================] - 7s 32ms/step - loss: 2.3564 - accuracy: 0.2290 - val_loss: 2.1183 - val_accuracy: 0.2950 - lr: 1.0000e-04
+Epoch 4/20
+225/225 [==============================] - ETA: 0s - loss: 2.1142 - accuracy: 0.2953
+Epoch 4: val_loss improved from 2.11828 to 1.92641, saving model to best_asl_transformer_20.h5
+225/225 [==============================] - 7s 30ms/step - loss: 2.1142 - accuracy: 0.2953 - val_loss: 1.9264 - val_accuracy: 0.3613 - lr: 1.0000e-04
+Epoch 5/20
+225/225 [==============================] - ETA: 0s - loss: 1.9057 - accuracy: 0.3594
+Epoch 5: val_loss improved from 1.92641 to 1.67194, saving model to best_asl_transformer_20.h5
+225/225 [==============================] - 7s 30ms/step - loss: 1.9057 - accuracy: 0.3594 - val_loss: 1.6719 - val_accuracy: 0.4663 - lr: 1.0000e-04
+Epoch 6/20
+225/225 [==============================] - ETA: 0s - loss: 1.6974 - accuracy: 0.4340
+Epoch 6: val_loss improved from 1.67194 to 1.64354, saving model to best_asl_transformer_20.h5
+225/225 [==============================] - 7s 30ms/step - loss: 1.6974 - accuracy: 0.4340 - val_loss: 1.6435 - val_accuracy: 0.4575 - lr: 1.0000e-04
+Epoch 7/20
+225/225 [==============================] - ETA: 0s - loss: 1.5357 - accuracy: 0.4896
+Epoch 7: val_loss improved from 1.64354 to 1.42995, saving model to best_asl_transformer_20.h5
+225/225 [==============================] - 7s 31ms/step - loss: 1.5357 - accuracy: 0.4896 - val_loss: 1.4299 - val_accuracy: 0.5075 - lr: 1.0000e-04
+Epoch 8/20
+225/225 [==============================] - ETA: 0s - loss: 1.3532 - accuracy: 0.5496
+Epoch 8: val_loss improved from 1.42995 to 1.17153, saving model to best_asl_transformer_20.h5
+225/225 [==============================] - 7s 31ms/step - loss: 1.3532 - accuracy: 0.5496 - val_loss: 1.1715 - val_accuracy: 0.6225 - lr: 1.0000e-04
+Epoch 9/20
+225/225 [==============================] - ETA: 0s - loss: 1.2080 - accuracy: 0.5943
+Epoch 9: val_loss improved from 1.17153 to 1.09849, saving model to best_asl_transformer_20.h5
+225/225 [==============================] - 7s 31ms/step - loss: 1.2080 - accuracy: 0.5943 - val_loss: 1.0985 - val_accuracy: 0.6575 - lr: 1.0000e-04
+Epoch 10/20
+225/225 [==============================] - ETA: 0s - loss: 1.1020 - accuracy: 0.6439
+Epoch 10: val_loss improved from 1.09849 to 1.01624, saving model to best_asl_transformer_20.h5
+225/225 [==============================] - 9s 38ms/step - loss: 1.1020 - accuracy: 0.6439 - val_loss: 1.0162 - val_accuracy: 0.6812 - lr: 1.0000e-04
+Epoch 11/20
+225/225 [==============================] - ETA: 0s - loss: 1.0194 - accuracy: 0.6654
+Epoch 11: val_loss improved from 1.01624 to 0.98728, saving model to best_asl_transformer_20.h5
+225/225 [==============================] - 7s 32ms/step - loss: 1.0194 - accuracy: 0.6654 - val_loss: 0.9873 - val_accuracy: 0.6837 - lr: 1.0000e-04
+Epoch 12/20
+225/225 [==============================] - ETA: 0s - loss: 0.9382 - accuracy: 0.6922
+Epoch 12: val_loss improved from 0.98728 to 0.81237, saving model to best_asl_transformer_20.h5
+225/225 [==============================] - 7s 31ms/step - loss: 0.9382 - accuracy: 0.6922 - val_loss: 0.8124 - val_accuracy: 0.7525 - lr: 1.0000e-04
+Epoch 13/20
+225/225 [==============================] - ETA: 0s - loss: 0.8789 - accuracy: 0.7156
+Epoch 13: val_loss did not improve from 0.81237
+225/225 [==============================] - 7s 31ms/step - loss: 0.8789 - accuracy: 0.7156 - val_loss: 0.8402 - val_accuracy: 0.7275 - lr: 1.0000e-04
+Epoch 14/20
+225/225 [==============================] - ETA: 0s - loss: 0.7954 - accuracy: 0.7426
+Epoch 14: val_loss did not improve from 0.81237
+225/225 [==============================] - 7s 30ms/step - loss: 0.7954 - accuracy: 0.7426 - val_loss: 0.8262 - val_accuracy: 0.7538 - lr: 1.0000e-04
+Epoch 15/20
+225/225 [==============================] - ETA: 0s - loss: 0.7788 - accuracy: 0.7451
+Epoch 15: val_loss improved from 0.81237 to 0.78849, saving model to best_asl_transformer_20.h5
+225/225 [==============================] - 7s 30ms/step - loss: 0.7788 - accuracy: 0.7451 - val_loss: 0.7885 - val_accuracy: 0.7487 - lr: 1.0000e-04
+Epoch 16/20
+225/225 [==============================] - ETA: 0s - loss: 0.7202 - accuracy: 0.7646
+Epoch 16: val_loss did not improve from 0.78849
+225/225 [==============================] - 7s 31ms/step - loss: 0.7202 - accuracy: 0.7646 - val_loss: 0.7899 - val_accuracy: 0.7400 - lr: 1.0000e-04
+Epoch 17/20
+225/225 [==============================] - ETA: 0s - loss: 0.6965 - accuracy: 0.7788
+Epoch 17: val_loss improved from 0.78849 to 0.74999, saving model to best_asl_transformer_20.h5
+225/225 [==============================] - 7s 30ms/step - loss: 0.6965 - accuracy: 0.7788 - val_loss: 0.7500 - val_accuracy: 0.7625 - lr: 1.0000e-04
+Epoch 18/20
+225/225 [==============================] - ETA: 0s - loss: 0.6620 - accuracy: 0.7900
+Epoch 18: val_loss did not improve from 0.74999
+225/225 [==============================] - 7s 31ms/step - loss: 0.6620 - accuracy: 0.7900 - val_loss: 0.7511 - val_accuracy: 0.7700 - lr: 1.0000e-04
+Epoch 19/20
+225/225 [==============================] - ETA: 0s - loss: 0.6358 - accuracy: 0.7914
+Epoch 19: val_loss improved from 0.74999 to 0.74686, saving model to best_asl_transformer_20.h5
+225/225 [==============================] - 7s 30ms/step - loss: 0.6358 - accuracy: 0.7914 - val_loss: 0.7469 - val_accuracy: 0.7513 - lr: 1.0000e-04
+Epoch 20/20
+225/225 [==============================] - ETA: 0s - loss: 0.6153 - accuracy: 0.8004
+Epoch 20: val_loss improved from 0.74686 to 0.70563, saving model to best_asl_transformer_20.h5
+225/225 [==============================] - 7s 30ms/step - loss: 0.6153 - accuracy: 0.8004 - val_loss: 0.7056 - val_accuracy: 0.7713 - lr: 1.0000e-04
+Transformer training time for 20 epochs: 142.62 seconds
+≈ 7.13 seconds per epoch
+Saved final model to: asl_transformer_20.h5
+Label map saved to: asl_transformer_20_sign_to_idx.json
+25/25 [==============================] - 0s 13ms/step - loss: 0.7056 - accuracy: 0.7713
+Final val_loss = 0.7056, val_acc = 0.7713</pre>
+        </div>
+      </details>
+    </section>
+
+    <div class="footer-note">
+      Takeaway: on this 20-sign ASL subset, CPU-only setup, the Transformer is
+      <strong>smaller</strong>, about <strong>5.5× faster per epoch</strong>, and reaches
+      around <strong>77% validation accuracy</strong>, compared to the LSTM’s
+      <strong>~56% validation accuracy</strong>.
+    </div>
+  </div>
+</body>
+</html>

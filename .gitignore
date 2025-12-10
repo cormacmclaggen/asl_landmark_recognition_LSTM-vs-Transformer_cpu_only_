@@ -1,0 +1,29 @@
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Virtual env (nếu có)
+venv/
+.env/
+
+# Big data folders
+data_parquet/
+train_landmark_files/
+
+# Models
+model.tflite
+asl-LSTM/*.h5
+asl-LSTM/*.tflite
+asl-transformer/*.h5
+asl-transformer/*.tflite
+
+# CSV dữ liệu gốc (nếu nặng)
+train.csv
+
+# Editor stuff
+.vscode/
+*.swp
