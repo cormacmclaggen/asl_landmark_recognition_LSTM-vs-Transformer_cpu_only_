@@ -2,13 +2,13 @@
 # -*- coding: utf-8 -*-
 
 """
-Realtime ASL Transformer (aligned với script train của m)
+Realtime ASL Transformer (aligned with my training script)
 
-- Input TFLite: (1, 32, 543, 3)
-- Mỗi frame: 543 landmark (pose 33, face 468, left hand 21, right hand 21)
-- Gom 32 frame → (32, 543, 3)
-- Normalize per-sample: (x - mean) / std giống hệt load_parquet()
-- Dự đoán liên tục, có smoothing nhẹ
+- TFLite input: (1, 32, 543, 3)
+- Each frame: 543 landmarks (pose 33, face 468, left hand 21, right hand 21)
+- Stack 32 frames → (32, 543, 3)
+- Normalize per sample: (x - mean) / std exactly the same as load_parquet()
+- Continuous prediction with light smoothing
 """
 
 import cv2
@@ -25,12 +25,12 @@ import mediapipe as mp
 MODEL_PATH = "/home/lananh/GISLR/asl-transformer/asl_transformer_20.tflite"
 LABELS_JSON_PATH = "/home/lananh/GISLR/asl-transformer/asl_transformer_20_sign_to_idx.json"
 
-ROWS_PER_FRAME = 543   # phải khớp với train
+ROWS_PER_FRAME = 543   # must match training
 MAX_FRAMES = 32        # = SEQ_LEN
 WEBCAM_ID = 0
 
-SMOOTHING_WINDOW = 5   # frame giống nhau để mượt
-THRESHOLD = 0.3        # conf > 0.3 mới nhận (sau khi align rồi)
+SMOOTHING_WINDOW = 5   # number of identical frames to smooth predictions
+THRESHOLD = 0.3        # accept prediction only if conf > 0.3 (after alignment)
 
 # =========================
 # LOAD LABELS
@@ -41,7 +41,7 @@ def load_labels_from_json(path):
         data = json.load(f)
 
     if not isinstance(data, dict):
-        raise ValueError("JSON phải là dict {sign_name: index}")
+        raise ValueError("JSON must be a dict {sign_name: index}")
 
     max_id = max(int(v) for v in data.values())
     labels = [""] * (max_id + 1)
@@ -108,9 +108,9 @@ holistic = mp_holistic.Holistic(
 
 def extract_frame_landmarks(results):
     """
-    Build (543, 3) theo thứ tự:
+    Build (543, 3) in the order:
     [pose(33), face(468), left(21), right(21)]
-    Giống GISLR & MediaPipe Holistic.
+    Same as GISLR & MediaPipe Holistic.
     """
 
     # Pose: 33
@@ -141,7 +141,7 @@ def extract_frame_landmarks(results):
     else:
         rh = np.zeros((21, 3), dtype=np.float32)
 
-    # Ghép lại
+    # Concatenate
     frame = np.concatenate([pose, face, lh, rh], axis=0)  # (543, 3)
 
     if frame.shape != (ROWS_PER_FRAME, 3):
@@ -156,7 +156,7 @@ def extract_frame_landmarks(results):
 def preprocess_sequence(seq_32x543x3):
     """
     seq_32x543x3: (32, 543, 3)
-    Apply y chang code train:
+    Apply exactly the same as training code:
         mean = np.nanmean(arr, axis=(0,1))
         std = np.nanstd(arr, axis=(0,1))
         arr = (arr - mean) / std
@@ -179,13 +179,13 @@ def preprocess_sequence(seq_32x543x3):
 
 def predict_sequence(seq_window):
     """
-    seq_window: deque length 32, mỗi phần tử shape (543, 3)
+    seq_window: deque of length 32, each element has shape (543, 3)
     """
     # (32, 543, 3)
     seq = np.stack(seq_window, axis=0)   # (T, L, C)
-    seq = preprocess_sequence(seq)       # match train
+    seq = preprocess_sequence(seq)       # match training
 
-    # Reshape về (1, 32, 543, 3)
+    # Reshape to (1, 32, 543, 3)
     seq = seq.reshape(input_shape).astype(np.float32)
 
     interpreter.set_tensor(input_index, seq)
@@ -241,16 +241,16 @@ def main():
             mp_drawing.draw_landmarks(
                 frame, results.right_hand_landmarks, mp_holistic.HAND_CONNECTIONS
             )
-            # Face không nhất thiết phải vẽ cho nhẹ
+            # Face drawing is optional to keep it lighter
 
-            # Lấy (543, 3) cho frame hiện tại
+            # Get (543, 3) for the current frame
             landmarks_543x3 = extract_frame_landmarks(results)
             seq_window.append(landmarks_543x3)
 
-            # Đủ 32 frame mới predict
+            # Only predict when we have 32 frames
             if len(seq_window) == MAX_FRAMES:
                 pred_id, conf, probs = predict_sequence(seq_window)
-                # debug nhẹ:
+                # light debug:
                 # print(f"[DEBUG] pred={labels[pred_id]}, conf={conf:.3f}")
 
                 if conf > THRESHOLD:

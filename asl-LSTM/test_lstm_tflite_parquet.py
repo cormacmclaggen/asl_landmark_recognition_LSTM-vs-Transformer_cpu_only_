@@ -23,7 +23,7 @@ def load_parquet_for_inference(path):
         pad = np.zeros((MAX_FRAMES - df.shape[0], ROWS_PER_FRAME, 3), dtype=np.float32)
         df = np.concatenate([df, pad], axis=0)
 
-    # Normalize giống lúc train
+    # Normalize same as during training
     mean = np.nanmean(df, axis=(0, 1), keepdims=True)
     std = np.nanstd(df, axis=(0, 1), keepdims=True)
     std[std < 1e-6] = 1e-6
@@ -34,11 +34,11 @@ def load_parquet_for_inference(path):
 
 
 if __name__ == "__main__":
-    # Đổi đường dẫn này thành 1 parquet mà cậu biết class của nó
+    # Change this path to a parquet file whose class you already know
     pq_file = "/home/lananh/GISLR/train_landmark_files/16069/721389.parquet"
 
     if not os.path.exists(pq_file):
-        raise FileNotFoundError(f"Không tìm thấy file: {pq_file}")
+        raise FileNotFoundError(f"File not found: {pq_file}")
 
     # Load label map
     with open(LABEL_JSON, "r") as f:
@@ -55,7 +55,7 @@ if __name__ == "__main__":
     output_index = output_details["index"]
     input_rank = len(input_details["shape"])
 
-    # Chuẩn input
+    # Prepare input
     xyz = load_parquet_for_inference(pq_file)  # (32, 543, 3)
     if input_rank == 3:
         model_input = xyz  # (32, 543, 3)

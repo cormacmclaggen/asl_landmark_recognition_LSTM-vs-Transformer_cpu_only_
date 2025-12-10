@@ -2,10 +2,10 @@
 # -*- coding: utf-8 -*-
 
 """
-Chạy inference TFLite trên các file parquet GISLR,
-giống hệt notebook Jupyter.
+Run TFLite inference on GISLR parquet files,
+same logic as the Jupyter notebook.
 
-Cách dùng (ví dụ):
+Usage example:
     (mp_env) python run_tflite_parquet.py \
         /home/lananh/GISLR/data_parquet/shhh-0.parquet \
         /home/lananh/GISLR/data_parquet/bird-0.parquet \
@@ -18,33 +18,33 @@ import os
 import numpy as np
 import pandas as pd
 
-# Nếu m dùng tflite_runtime trong notebook:
+# If you used tflite_runtime in the notebook:
 try:
     import tflite_runtime.interpreter as tflite
 except ImportError:
-    # fallback sang tensorflow nếu không có tflite_runtime
+    # Fallback to tensorflow.lite if tflite_runtime is not available
     import tensorflow.lite as tflite
 
 # ==============================
-# CONFIG – SỬA CHO ĐÚNG ĐƯỜNG DẪN
+# CONFIG – UPDATE PATHS
 # ==============================
 
 MODEL_PATH = "/home/lananh/GISLR/model.tflite"
 TRAIN_CSV_PATH = "/home/lananh/GISLR/train.csv"
 
-ROWS_PER_FRAME = 543   # số landmark mỗi frame (GISLR fixed)
+ROWS_PER_FRAME = 543   # number of landmarks per frame (fixed in GISLR)
 DATA_COLUMNS = ["x", "y", "z"]
 
 
 # ==============================
-# 1. HÀM ĐỌC PARQUET → (n_frames, 543, 3)
+# 1. READ PARQUET → (n_frames, 543, 3)
 # ==============================
 
 def load_relevant_data_subset(pq_path: str) -> np.ndarray:
     """
-    Đọc parquet GISLR (cột x,y,z) và reshape thành
+    Read a GISLR parquet (x, y, z columns) and reshape to
         (n_frames, ROWS_PER_FRAME, 3)
-    y chang code trong notebook.
+    exactly like the notebook code.
     """
     data = pd.read_parquet(pq_path, columns=DATA_COLUMNS)
     n_frames = int(len(data) / ROWS_PER_FRAME)
@@ -53,7 +53,7 @@ def load_relevant_data_subset(pq_path: str) -> np.ndarray:
 
 
 # ==============================
-# 2. LOAD MODEL + TẠO prediction_fn
+# 2. LOAD MODEL + CREATE prediction_fn
 # ==============================
 
 def load_tflite_model(model_path: str):
@@ -63,16 +63,16 @@ def load_tflite_model(model_path: str):
     sigs = interpreter.get_signature_list()
     if "serving_default" not in sigs:
         raise RuntimeError(
-            f"Model không có signature 'serving_default'. "
-            f"Các signature có sẵn: {list(sigs.keys())}"
+            f"Model does not have a 'serving_default' signature. "
+            f"Available signatures: {list(sigs.keys())}"
         )
 
     sig = sigs["serving_default"]
-    # Lấy đúng tên input / output thực tế, ví dụ input_1, outputs
+    # Get the actual input/output names, e.g. 'input_1', 'outputs'
     input_keys = list(sig["inputs"].keys())
     output_keys = list(sig["outputs"].keys())
     if len(input_keys) != 1 or len(output_keys) != 1:
-        raise RuntimeError(f"Signature kỳ lạ: {sig}")
+        raise RuntimeError(f"Unexpected signature structure: {sig}")
 
     input_key = input_keys[0]
     output_key = output_keys[0]
@@ -86,7 +86,7 @@ def load_tflite_model(model_path: str):
 
 
 # ==============================
-# 3. LOAD LABEL MAP từ train.csv
+# 3. LOAD LABEL MAP from train.csv
 # ==============================
 
 def load_label_mapping(train_csv_path: str):
@@ -111,31 +111,31 @@ def load_label_mapping(train_csv_path: str):
 
 
 # ==============================
-# 4. INFERENCE TRÊN 1 FILE PARQUET
+# 4. INFERENCE ON ONE PARQUET FILE
 # ==============================
 
 def get_prediction(prediction_fn, input_key, output_key, ord2sign, pq_file: str):
     """
-    Chạy inference trên một file parquet và in kết quả.
+    Run inference on a parquet file and print the result.
     """
     if not os.path.exists(pq_file):
-        print(f"[ERROR] File không tồn tại: {pq_file}")
+        print(f"[ERROR] File does not exist: {pq_file}")
         return
 
     xyz_np = load_relevant_data_subset(pq_file)  # (n_frames, 543, 3)
 
-    # Gửi dữ liệu với đúng tên input_key (vd 'inputs', 'input_1', ...)
+    # Feed data with the correct input_key (e.g. 'inputs', 'input_1', ...)
     prediction = prediction_fn(**{input_key: xyz_np})
 
-    # Lấy đúng tên output_key (vd 'outputs', 'output_0', ...)
+    # Get the correct output_key (e.g. 'outputs', 'output_0', ...)
     outputs = prediction[output_key]
     outputs = np.asarray(outputs, dtype=np.float32)
 
     if outputs.ndim > 1:
-        # phòng khi có batch dimension
+        # In case there is a batch dimension
         outputs = outputs[0]
 
-    # softmax nhẹ (nếu model chưa có)
+    # Light softmax (if the model doesn't already include it)
     logits = outputs - np.max(outputs)
     exp = np.exp(logits)
     probs = exp / (np.sum(exp) + 1e-8)
@@ -161,7 +161,7 @@ def main():
     parser.add_argument(
         "parquet_files",
         nargs="+",
-        help="Đường dẫn 1 hoặc nhiều file .parquet để dự đoán",
+        help="Path to one or more .parquet files to run prediction on",
     )
     args = parser.parse_args()
 

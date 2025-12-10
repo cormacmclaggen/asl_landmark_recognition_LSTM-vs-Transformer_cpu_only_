@@ -8,10 +8,10 @@ if __name__ == "__main__":
     print("Loading Keras model:", H5_MODEL)
     model = tf.keras.models.load_model(H5_MODEL)
 
-    # 2. Tạo converter
+    # 2. Create converter
     converter = tf.lite.TFLiteConverter.from_keras_model(model)
 
-    # ⚠️ Rất quan trọng với LSTM: dùng SELECT_TF_OPS và tắt lower tensor list
+    # ⚠️ Very important for LSTM: use SELECT_TF_OPS and disable lowering tensor list ops
     converter.target_spec.supported_ops = [
         tf.lite.OpsSet.TFLITE_BUILTINS,
         tf.lite.OpsSet.SELECT_TF_OPS,

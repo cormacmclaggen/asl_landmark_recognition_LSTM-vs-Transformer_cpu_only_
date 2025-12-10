@@ -2,14 +2,14 @@
 # -*- coding: utf-8 -*-
 
 """
-Realtime gesture/ASL với TFLite + MediaPipe + OpenCV
+Realtime gesture/ASL with TFLite + MediaPipe + OpenCV
 
-- Đọc webcam
-- Lấy keypoints từ MediaPipe Holistic
-- Gom thành sequence (sliding window)
-- Cho vào model .tflite (input shape kiểu (1, 32, 543, 3))
-- Dự đoán liên tục, KHÔNG dùng threshold (nhảy mọi lúc)
-- Smoothing nhẹ để đỡ loạn
+- Read webcam
+- Get keypoints from MediaPipe Holistic
+- Build sequence (sliding window)
+- Feed into .tflite model (input shape like (1, 32, 543, 3))
+- Predict continuously, NO threshold (always predicting)
+- Light smoothing to reduce jitter
 """
 
 import cv2
@@ -27,16 +27,16 @@ import mediapipe as mp
 MODEL_PATH = "/home/lananh/GISLR/asl-transformer/asl_transformer_20.tflite"
 LABELS_JSON_PATH = "/home/lananh/GISLR/asl-transformer/asl_transformer_20_sign_to_idx.json"
 
-SMOOTHING_WINDOW = 3   # 3 frame giống nhau thì mượt hơn chút
+SMOOTHING_WINDOW = 3   # 3 identical frames → slightly smoother
 WEBCAM_ID = 0          # 0 = default cam
 
 # =========================
-# LOAD LABELS TỪ JSON
+# LOAD LABELS FROM JSON
 # =========================
 
 def load_labels_from_json(path):
     """
-    JSON dạng:
+    JSON format:
     {
         "listen": 0,
         "look": 1,
@@ -44,14 +44,14 @@ def load_labels_from_json(path):
         ...
     }
 
-    Trả về:
-        labels: list sao cho labels[id] = "class_name"
+    Returns:
+        labels: list such that labels[id] = "class_name"
     """
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
 
     if not isinstance(data, dict):
-        raise ValueError("File JSON phải là dict {class_name: id}")
+        raise ValueError("JSON file must be a dict {class_name: id}")
 
     max_id = max(int(v) for v in data.values())
     labels = [""] * (max_id + 1)
@@ -61,7 +61,7 @@ def load_labels_from_json(path):
         if 0 <= idx <= max_id:
             labels[idx] = name
 
-    # Fill chỗ rỗng nếu có
+    # Fill empty slots if any
     for i, v in enumerate(labels):
         if v == "":
             labels[i] = f"class_{i}"
@@ -86,12 +86,12 @@ output_details = interpreter.get_output_details()
 input_index = input_details[0]['index']
 output_index = output_details[0]['index']
 
-input_shape = input_details[0]['shape']   # ví dụ: [ 1 32 543 3]
+input_shape = input_details[0]['shape']   # e.g.: [ 1 32 543 3]
 print("[INFO] Raw model input shape:", input_shape)
 
 rank = len(input_shape)
 
-# Ta muốn: SEQ_LEN = số frame, INPUT_FEATURES = số feature / frame (flatten)
+# We want: SEQ_LEN = number of frames, INPUT_FEATURES = features per frame (flattened)
 if rank == 3:
     # (batch, seq_len, feature_dim)
     _, SEQ_LEN, INPUT_FEATURES = input_shape
@@ -100,7 +100,7 @@ if rank == 3:
     MODEL_INPUT_SHAPE = tuple(input_shape)
 
 elif rank == 4:
-    # (batch, seq_len, d1, d2) = (1, 32, 543, 3) chẳng hạn
+    # (batch, seq_len, d1, d2) = (1, 32, 543, 3) for example
     _, SEQ_LEN, D1, D2 = input_shape
     SEQ_LEN = int(SEQ_LEN)
     INPUT_FEATURES = int(D1 * D2)
@@ -138,9 +138,9 @@ _warning_printed = False
 
 def extract_keypoints(results):
     """
-    Trả về 1 vector (INPUT_FEATURES ≈ 1629,) từ MediaPipe Holistic.
+    Return one vector (INPUT_FEATURES ≈ 1629,) from MediaPipe Holistic.
 
-    Chuẩn: 543 landmarks * 3 (x,y,z) = 1629:
+    Standard: 543 landmarks * 3 (x,y,z) = 1629:
         - Pose: 33 * 3
         - Face: 468 * 3
         - Left hand: 21 * 3
@@ -190,11 +190,11 @@ def extract_keypoints(results):
 
 def predict_sequence(seq_window):
     """
-    seq_window: deque chứa SEQ_LEN vector (INPUT_FEATURES,)
+    seq_window: deque containing SEQ_LEN vectors (INPUT_FEATURES,)
     return: (pred_label_id, pred_confidence, probs_vector)
     """
     arr = np.array(seq_window, dtype=np.float32)     # (SEQ_LEN, INPUT_FEATURES)
-    seq = arr.reshape(MODEL_INPUT_SHAPE)             # (1, SEQ_LEN, 543, 3) kiểu vậy
+    seq = arr.reshape(MODEL_INPUT_SHAPE)             # (1, SEQ_LEN, 543, 3) or similar
 
     interpreter.set_tensor(input_index, seq)
     interpreter.invoke()
@@ -216,7 +216,7 @@ def predict_sequence(seq_window):
 def main():
     cap = cv2.VideoCapture(WEBCAM_ID)
     if not cap.isOpened():
-        print("[ERROR] Không mở được webcam")
+        print("[ERROR] Cannot open webcam")
         return
 
     seq_window = deque(maxlen=SEQ_LEN)
@@ -225,25 +225,25 @@ def main():
     current_label = ""
     current_conf = 0.0
 
-    print("[INFO] Press 'q' để thoát")
+    print("[INFO] Press 'q' to quit")
 
     try:
         while True:
             ret, frame = cap.read()
             if not ret:
-                print("[WARN] Không đọc được frame từ webcam")
+                print("[WARN] Cannot read frame from webcam")
                 break
 
-            # Flip cho giống gương
+            # Flip horizontally like a mirror
             frame = cv2.flip(frame, 1)
 
-            # BGR -> RGB cho MediaPipe
+            # BGR -> RGB for MediaPipe
             image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             image_rgb.flags.writeable = False
             results = holistic.process(image_rgb)
             image_rgb.flags.writeable = True
 
-            # Vẽ landmarks (optional)
+            # Draw landmarks (optional)
             mp_drawing.draw_landmarks(
                 frame, results.pose_landmarks, mp_holistic.POSE_CONNECTIONS
             )
@@ -254,22 +254,22 @@ def main():
                 frame, results.right_hand_landmarks, mp_holistic.HAND_CONNECTIONS
             )
 
-            # Lấy keypoints
+            # Extract keypoints
             keypoints = extract_keypoints(results)
             seq_window.append(keypoints)
 
-            # Chỉ predict khi đủ SEQ_LEN frame
+            # Only predict when we have SEQ_LEN frames
             if len(seq_window) == SEQ_LEN:
                 pred_id, conf, probs = predict_sequence(seq_window)
 
-                # luôn dùng pred_id, không threshold
+                # always use pred_id, no threshold
                 smooth_preds.append(pred_id)
 
                 if len(smooth_preds) == SMOOTHING_WINDOW:
                     values, counts = np.unique(list(smooth_preds), return_counts=True)
                     majority_id = int(values[np.argmax(counts)])
                     current_label = labels[majority_id]
-                    current_conf = conf  # show conf của step cuối
+                    current_conf = conf  # show confidence of the latest step
 
             # =========================
             # DRAW UI
@@ -291,7 +291,7 @@ def main():
 
             cv2.imshow("Realtime Transformer (TFLite)", frame)
 
-            # Nhấn 'q' để thoát
+            # Press 'q' to quit
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
@@ -299,7 +299,7 @@ def main():
         cap.release()
         holistic.close()
         cv2.destroyAllWindows()
-        print("[INFO] Đã thoát chương trình")
+        print("[INFO] Program exited")
 
 if __name__ == "__main__":
     main()

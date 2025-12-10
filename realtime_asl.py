@@ -11,21 +11,21 @@ import pandas as pd
 import tensorflow as tf
 
 # ==============================
-# CONFIG – SỬA CHO ĐÚNG
+# CONFIG – EDIT THESE PATHS
 # ==============================
 
-# Video cần nhận dạng
+# Video to recognize
 VIDEO_PATH = "/home/lananh/GISLR/test_video.mp4"
 
 # Model & label map
 MODEL_PATH = "/home/lananh/GISLR/model.tflite"
 SIGN_MAP_PATH = "/home/lananh/GISLR/sign_to_prediction_index_map.json"
 
-# Một parquet bất kỳ trong train_landmark_files để lấy skeleton (type + landmark_index)
+# Any parquet file in train_landmark_files to get skeleton (type + landmark_index)
 TEMPLATE_PQ = "/home/lananh/GISLR/train_landmark_files/16069/695046.parquet"
 
 ROWS_PER_FRAME = 543
-MAX_FRAMES = 32  # phải trùng với lúc train (32 frame / sample)
+MAX_FRAMES = 32  # must match training (32 frames / sample)
 
 
 # ==============================
@@ -37,7 +37,7 @@ mp_holistic = mp.solutions.holistic
 
 
 # ==============================
-# 1. Đọc skeleton từ parquet
+# 1. Read skeleton from parquet
 # ==============================
 
 def get_xyz_skeleton(template_parquet_path: str) -> pd.DataFrame:
@@ -47,7 +47,7 @@ def get_xyz_skeleton(template_parquet_path: str) -> pd.DataFrame:
 
 
 # ==============================
-# 2. Landmarks cho 1 frame
+# 2. Landmarks for 1 frame
 # ==============================
 
 def create_frame_landmark_df(results, frame_idx: int, xyz_skel: pd.DataFrame) -> pd.DataFrame:
@@ -118,8 +118,8 @@ print("       ", [IDX2SIGN[i] for i in sorted(IDX2SIGN.keys())])
 
 def video_to_sequence_xyz(video_path: str, xyz_skel: pd.DataFrame) -> np.ndarray:
     """
-    Đọc toàn bộ VIDEO_PATH, trích landmark cho từng frame,
-    rồi sample/pad về (MAX_FRAMES, 543, 3), chuẩn hoá như lúc train.
+    Read the whole VIDEO_PATH, extract landmarks for each frame,
+    then sample/pad to (MAX_FRAMES, 543, 3), normalize same as training.
     """
     if not os.path.exists(video_path):
         raise FileNotFoundError(f"Video not found: {video_path}")
@@ -159,18 +159,18 @@ def video_to_sequence_xyz(video_path: str, xyz_skel: pd.DataFrame) -> np.ndarray
 
     print(f"[INFO] Total frames with landmarks: {len(frames_dfs)}")
 
-    # ---- Sample / pad về MAX_FRAMES ----
+    # ---- Sample / pad to MAX_FRAMES ----
     if len(frames_dfs) >= MAX_FRAMES:
-        # Lấy đều MAX_FRAMES frame trong cả video
+        # Evenly sample MAX_FRAMES frames from the whole video
         idxs = np.linspace(0, len(frames_dfs) - 1, MAX_FRAMES).astype(int)
         selected = [frames_dfs[i] for i in idxs]
     else:
-        # Nếu video ngắn, lặp lại frame cuối để đủ MAX_FRAMES
+        # If the video is short, repeat the last frame to reach MAX_FRAMES
         selected = frames_dfs.copy()
         while len(selected) < MAX_FRAMES:
             selected.append(selected[-1])
 
-    # Dồn lại giống predict_from_buffer trước đây
+    # Stack back similarly to predict_from_buffer
     fixed_dfs = []
     for i, df in enumerate(selected):
         tmp = df.copy()
@@ -189,30 +189,30 @@ def video_to_sequence_xyz(video_path: str, xyz_skel: pd.DataFrame) -> np.ndarray
 
     xyz = xyz.reshape(n_frames, ROWS_PER_FRAME, 3).astype(np.float32)
 
-    # Chuẩn hoá giống lúc train
+    # Normalize same as in training
     mean = np.nanmean(xyz, axis=(0, 1), keepdims=True)
     std = np.nanstd(xyz, axis=(0, 1), keepdims=True)
     std[std < 1e-6] = 1e-6
     xyz = (xyz - mean) / std
     xyz = np.nan_to_num(xyz, nan=0.0, posinf=0.0, neginf=0.0)
 
-    # Clamp nhẹ cho an toàn
+    # Light clamp for safety
     xyz = np.clip(xyz, -5.0, 5.0)
 
     return xyz  # (MAX_FRAMES, 543, 3)
 
 
 # ==============================
-# 5. Inference cho 1 sequence
+# 5. Inference for one sequence
 # ==============================
 
 def infer_sequence_xyz(xyz: np.ndarray):
     """
     xyz: (MAX_FRAMES, 543, 3)
-    Trả về best_label, best_prob, top3
+    Returns best_label, best_prob, top3
     """
     if input_rank == 3:
-        # (MAX_FRAMES, 543, 3) -> y như input Keras nếu nó là (32, 543, 3)
+        # (MAX_FRAMES, 543, 3) -> same as Keras input if it is (32, 543, 3)
         model_input = xyz.astype(input_dtype)
     else:
         # (1, MAX_FRAMES, 543, 3)
